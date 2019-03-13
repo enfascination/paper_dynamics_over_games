@@ -217,6 +217,16 @@ class OrdinalGameSpace(object):
         #print (sum([payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]]) , [payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]], game.outcomes[game.foundNashEq[0]])
     return( np.array(categories) )
 
+#http://planspace.org/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
+def gini(list_of_values):
+    sorted_list = sorted(list_of_values)
+    height, area = 0, 0
+    for value in sorted_list:
+        height += value
+        area += height - value / 2.
+    fair_area = height * len(list_of_values) / 2.
+    return (fair_area - area) / fair_area
+
 if __name__ == '__main__':
   g = OrdinalGame(2)
   g.outcomes = np.array([[[3,3],[1,4]],[[4,1],[2,2]]] )
