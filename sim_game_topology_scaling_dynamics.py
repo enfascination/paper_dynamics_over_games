@@ -8,14 +8,17 @@ from time import clock
 #import simplejson ###stackoverflow python-write-a-list-to-a-file
 import sys
 import csv
+import multiprocessing
+from functools import partial
 
-def runClassifyAttractors(i, reps=10000):
+def runClassifyAttractors(i, reps=10000, parallelize=False):
     space = OrdinalGameSpace(i)
     space.ngamesrecommended=reps
     #print( "players: %d\noutcomes: %d"%(i,space.noutcomes) )
     #print( "games, total: (2^%d)!^%d\ngames, sample size: %d"%(i, i, space.ngamesrecommended ) )
-    space.populateGameSpace( space.ngamesrecommended, True  )
-    dist = space.classifyGameAttractors( space.games.values() )
+    parallelize = False if i < 3 else parallelize ## below 4 is like arbitrary termination, which I can't get in parallel (and below which I don't need parallel)
+    space.populateGameSpace( space.ngamesrecommended, True , parallelize=parallelize )
+    dist = space.classifyGameAttractors( space.games.values())
     for j in range(i+3):
         commentary = "%d winner attractor games "%j
         if j==0: commentary="%d winner games (non-attractors)"%j
@@ -31,12 +34,32 @@ def runClassifyAttractors(i, reps=10000):
     dist.append(reps)
     return( dist )
 
-def runGameFairness(i, reps=10000, useGini=True, mode="attractors"):
+### helper for parallelization.  takes a game and computes he inequalities of its outcomes, with special treatmetnfor its nash outcomes
+def calcInequalities(g, orderedStrategySets, nstrats, useGini):
+    inequalityGame =  [0] * nstrats
+    inequalityOutcome = None
+    ### get average gini of all of this game's outcomes
+    for k, o in enumerate(orderedStrategySets):
+        if useGini:
+            inequalityGame[k] = gini( g.outcomes[ o ] )
+        else:
+            inequalityGame[k] = np.var( g.outcomes[ o ] / nstrats )
+    ### now just on its one nash outcome
+    ###     over mode=attractors, foundNashEq will aleays have one.  ove rth oether mode, there could be zero or severeal nash eq per game.
+    for nashIndex in g.foundNashEq:
+        if useGini:
+            inequalityOutcome = gini( g.outcomes[ nashIndex ] )
+        else:
+            inequalityOutcome = np.var( g.outcomes[ nashIndex ]  / nstrats )
+    return( np.mean( inequalityGame ), inequalityOutcome )
+
+def runGameFairness(i, reps=10000, useGini=True, mode="attractors", parallelize=False):
     space = OrdinalGameSpace(i)
     space.ngamesrecommended=reps
     #print( "players: %d\noutcomes: %d"%(i,space.noutcomes) )
     #print( "games, total: (2^%d)!^%d\ngames, sample size: %d"%(i, i, space.ngamesrecommended ) )
-    space.populateGameSpace( space.ngamesrecommended, True  )
+    parallelize = False if i < 3 else parallelize ## below 4 is like arbitrary termination, which I can't get in parallel (and below which I don't need parallel)
+    space.populateGameSpace( space.ngamesrecommended, True, parallelize=parallelize  )
     if mode == "attractors":
         games = space.attractorGames( space.games.values() )
     elif mode == "all_games":
@@ -44,42 +67,44 @@ def runGameFairness(i, reps=10000, useGini=True, mode="attractors"):
     ### start to measure ineqaulity of each game
     nstrats = len(space.orderedStrategySets)
     inequalitiesGames = [0] * len( games )
-    inequalityGame =  [0] * nstrats
     inequalitiesOutcomes = []
-    for j, g in enumerate( games ):
-        ### get average gini of all of this game's outcomes
-        for k, o in enumerate(space.orderedStrategySets):
-            if useGini:
-                inequalityGame[k] = gini( g.outcomes[ o ] )
-            else:
-                inequalityGame[k] = np.var( g.outcomes[ o ] / nstrats )
-        inequalitiesGames[j] = np.mean( inequalityGame )
-        ### now just on its one nash outcome
-        ###     over mode=attractors, foundNashEq will aleays have one.  ove rth oether mode, there could be zero or severeal nash eq per game.
-        for nashIndex in g.foundNashEq: 
-            if useGini:
-                inequalitiesOutcomes.append( gini( g.outcomes[ nashIndex ] ) )
-            else:
-                inequalitiesOutcomes.append( np.var( g.outcomes[ nashIndex ]  / nstrats ) )
-    return( (mode, i, np.mean( inequalitiesGames ), np.mean( inequalitiesOutcomes ) ) )
+    if parallelize:
+        calcInequalitiesPartial = partial( calcInequalities, orderedStrategySets = space.orderedStrategySets, nstrats=nstrats, useGini=useGini)
+        with multiprocessing.Pool( multiprocessing.cpu_count() ) as p:
+            inequalitiesGames, inequalitiesOutcomes = zip(*p.map(calcInequalitiesPartial, games))
+    else:
+        for j, g in enumerate( games ):
+            inequalityGame, inequalityOutcome = calcInequalities(g, space.orderedStrategySets, nstrats, useGini)
+            inequalitiesGames[j] = inequalityGame
+            inequalitiesOutcomes.append( inequalityOutcome )
+    inequalitiesOutcomes = [o for o in inequalitiesOutcomes if o is not None]
+    gamesMean = np.mean( inequalitiesGames )
+    outcomesMean = np.mean( inequalitiesOutcomes )
+    return( (mode, i, gamesMean, outcomesMean ) )
 
 
-with open("./sim_inequality_dataout.txt", "w") as output:
+with open("./sim_inequality_dataout.txt", "a") as output:
     csvwriter = csv.writer(output)
     #for i in tuple([2,9,8, 9,8,9,8,7,7,9,8,9,8,10]):
     #for i in (6,7,8):
-    for i in range(2,9):
-        #start = clock()
-        out = runGameFairness(i, 100000, mode="attractors")
+    if False:
+        for i in range(2,9):
+            #start = clock()
+            out = runGameFairness(i, 100000, mode="attractors", parallelize=True)
+            csvwriter.writerow( out )
+            print( out )
+            out = runGameFairness(i, 100000, mode="all_games", parallelize=True)
+            csvwriter.writerow( out )
+            print( out )
+        out = runGameFairness(9, 20000, mode="attractors", parallelize=True)
         csvwriter.writerow( out )
         print( out )
-        out = runGameFairness(i, 100000, mode="all_games")
+        out = runGameFairness(9, 20000, mode="all_games", parallelize=True)
         csvwriter.writerow( out )
-        print( out )
-    out = runGameFairness(9, 20000, mode="attractors")
+    out = runGameFairness(10, 3000, mode="attractors", parallelize=True)
     csvwriter.writerow( out )
     print( out )
-    out = runGameFairness(9, 20000, mode="all_games")
+    out = runGameFairness(10, 3000, mode="all_games", parallelize=True)
     csvwriter.writerow( out )
     print( out )
 
