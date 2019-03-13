@@ -101,10 +101,10 @@ with open("./sim_inequality_dataout.txt", "a") as output:
         print( out )
         out = runGameFairness(9, 20000, mode="all_games", parallelize=True)
         csvwriter.writerow( out )
-    out = runGameFairness(10, 3000, mode="attractors", parallelize=True)
+    out = runGameFairness(10, 10000, mode="attractors", parallelize=True)
     csvwriter.writerow( out )
     print( out )
-    out = runGameFairness(10, 3000, mode="all_games", parallelize=True)
+    out = runGameFairness(10, 10000, mode="all_games", parallelize=True)
     csvwriter.writerow( out )
     print( out )
 

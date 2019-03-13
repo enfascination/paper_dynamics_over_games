@@ -9,15 +9,15 @@ import numpy.random
 from copy import deepcopy
 import itertools
 from pprint import pprint
-#from math import factorial
+#from numpy.math import factorial as factorial
 #from scipy import factorial
 
 import multiprocessing
 from functools import partial
 
-def factorial(n):
+def factorial_recursive(n):
   if n <= 0: return( 1 )
-  else: return( n*factorial(n-1) )
+  else: return( n*factorial_recursive(n-1) )
 
 
 # bunch of overcomplicated crap to get multiprocessing working for me
@@ -140,7 +140,7 @@ class OrdinalGameSpace(object):
   def __init__(self, n):
     self.nplayers=n
     self.noutcomes = 2**n
-    self.ngames = factorial(2**n)**n
+    self.ngames = np.math.factorial(2**n)**n
     self.games = {}
     self.attractorgames = {}
     self.winwinattractorgames = {}
