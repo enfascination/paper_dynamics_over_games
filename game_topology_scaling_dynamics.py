@@ -78,6 +78,7 @@ class OrdinalGame(object):
     self.__gameid = ""
     self.foundNashEq = []
     self.foundWeakNashEq = []
+    self.isAttractor = None
     self.ntests = 0 ### the number of times that this game has been probed for equilibria (the number of strategy sets that have been tested)
   ### changes one player's strategy in the list of strategies
   def flip(self, strategy_set, player):
@@ -157,7 +158,7 @@ class OrdinalGameSpace(object):
   def generateRandomStrategySet( self):
     strategy = []
     for i in range(0, self.nplayers):
-      strategy.append(sample([0,1],1)[0])
+      strategy.append(np.random.choice([0,1],1)[0])
     return( tuple(strategy) )
 
   def generateRandomStrategySets( self, reps, replace=True):
@@ -213,19 +214,29 @@ class OrdinalGameSpace(object):
   #h.outcomes
 
   ### does the game have a unique nash eq with at least one highest-possible-payoff in its payoffs?
+  ### WARNING: don't run before nash eq have been searched for
   def gameIsAttractor( self, aGame):
-    if len(aGame.foundNashEq) != 1: return( False )
-    if aGame.ntests < self.nstrategysetsrecommended:
-      print("Warning OIUFD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
-    #return( 2**self.nplayers in aGame.outcomes[aGame.foundNashEq[0]] )  ### attractor defined as some player meeting conditions
-    return( aGame.outcomes[aGame.foundNashEq[0]][0]==2**self.nplayers ) ### attractor defined as focal player meeting conditions
+    if aGame.isAttractor is not None: return(aGame.isAttractor)
+    if len(aGame.foundNashEq) != 1: 
+      aGame.isAttractor = False
+    else: 
+      #aGame.isAttractor =  2**self.nplayers in aGame.outcomes[aGame.foundNashEq[0]]  ### attractor defined as some player meeting conditions
+      aGame.isAttractor = aGame.outcomes[aGame.foundNashEq[0]][0]==2**self.nplayers ### attractor defined as focal player meeting conditions
+      if aGame.ntests < self.nstrategysetsrecommended:
+        print("Warning OIUFD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
+    return( aGame.isAttractor) 
   ### does the game have a unique nash eq with all payoffs as the highest possible? 
 
   def gameIsWinWinAttractor( self, aGame):
-    if len(aGame.foundNashEq) != 1: return( False )
-    if aGame.ntests < self.nstrategysetsrecommended:
-      print("Warning FLKD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
-    return( all( aGame.outcomes[aGame.foundNashEq[0]] == 2**self.nplayers ) )
+    if aGame.isAttractor == False: return(False)
+    if len(aGame.foundNashEq) != 1: 
+      aGame.isAttractor = False
+    test = all( aGame.outcomes[aGame.foundNashEq[0]] == 2**self.nplayers )
+    if test: 
+      aGame.isAttractor = True
+      if aGame.ntests < self.nstrategysetsrecommended:
+        print("Warning FLKD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
+    return( test )
 
   def populateGameSpace( self, reps, prospectiveAttractor, parallelize=False):
     if not parallelize:
@@ -270,7 +281,8 @@ class OrdinalGameSpace(object):
         categories[self.nplayers+2] += 1
         #print ( "mult" )
       else: 
-        categories[sum([payoff == 2**self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]])] += 1
+        numMaxPayoffs = sum([payoff == 2**self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]])
+        categories[numMaxPayoffs] += 1
         #print (sum([payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]]) , [payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]], game.outcomes[game.foundNashEq[0]])
     return( np.array(categories) )
 
