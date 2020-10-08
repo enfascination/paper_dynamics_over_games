@@ -49,7 +49,7 @@ def generateRandomStrategySet_functional(rng, nplayers ):
 def generateRandomStrategySets_functional( reps, nplayers, rng, replace=True):
   """ hould generate with and without replacement, but I haven't implemented the second yet 
   (which will be handy for large-but-not-astronomical spaces)"""
-  print("random sets is happening")
+  #print("random sets is happening")
   return( [ generateRandomStrategySet_functional(rng, nplayers) for i in [1]*reps ] )
 def makeAndCharacterizeGame( seed, reps, gameskeleton, nplayers, noutcomes, orderedStrategySets, prospectiveAttractor):
   ### generate possible outcomes, None means no set seed
@@ -221,8 +221,9 @@ class OrdinalGameSpace(object):
       aGame.isAttractor = False
     else: 
       #aGame.isAttractor =  2**self.nplayers in aGame.outcomes[aGame.foundNashEq[0]]  ### attractor defined as some player meeting conditions
-      aGame.isAttractor = aGame.outcomes[aGame.foundNashEq[0]][0]==2**self.nplayers ### attractor defined as focal player meeting conditions
+      aGame.isAttractor = sorted(aGame.outcomes[aGame.foundNashEq[0]], reverse=True)[0]==2**self.nplayers ### attractor defined as focal player meeting conditions
       if aGame.ntests < self.nstrategysetsrecommended:
+        ### game isn't being sampled enough for trustworthy results
         print("Warning OIUFD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
     return( aGame.isAttractor) 
   ### does the game have a unique nash eq with all payoffs as the highest possible? 
@@ -261,29 +262,51 @@ class OrdinalGameSpace(object):
   def winWinAttractorGames( self, games):
     attractors = []
     for game in games:
-      if self.gameIsWinWinAttractor(game): attractors.append(game)
+      if self.gameIsWinWinAttractor(game): 
+        attractors.append(game)
     return( attractors )
 
   def attractorGames( self, games):
     attractors = []
     for game in games:
-      if self.gameIsAttractor(game): attractors.append(game)
+      if self.gameIsAttractor(game): 
+        attractors.append(game)
     return( attractors )
 
   def classifyGameAttractors( self, games):
-    categories = [0,]*(self.nplayers+3)
+    categories = [set() for i in range(self.nplayers+3)]
+    print( len( games ))
+    print( len(self.attractorGames( self.games.values() )))
     for game in games:
       #print(len(game.foundNashEq), [game.outcomes[s] for s in game.foundNashEq], )
       if len(game.foundNashEq)==0: 
-        categories[self.nplayers+1] += 1
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundNashEq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
+        categories[0].add( game.gameID() )
         #print("none")
       elif len(game.foundNashEq)>1: 
-        categories[self.nplayers+2] += 1
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundNashEq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
+        categories[2].add( game.gameID() )
         #print ( "mult" )
       else: 
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundnasheq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
         numMaxPayoffs = sum([payoff == 2**self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]])
-        categories[numMaxPayoffs] += 1
+        if numMaxPayoffs == 0:
+          index = 1
+        else:
+          index = 2 + numMaxPayoffs
+        categories[index].add( game.gameID() )
+
         #print (sum([payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]]) , [payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]], game.outcomes[game.foundNashEq[0]])
+    categories = [len(c) for c in categories ]
     return( np.array(categories) )
 
 #http://planspace.org/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
@@ -335,7 +358,7 @@ if __name__ == '__main__':
   s4 = (1,0,0) 
   print( all(threep.outcomes[s1] == [1,1,1]) )
   print( all(threep.outcomes[s3] == [0,4,0]) )
-  print( all(threep.flip(s3, 1)== s2 ) )
+  print( threep.flip(s3, 1)== s2 )
   print( " test 3p Nash testing" )
   print( threep.flip(s4, 0)==s1 )
   print( threep.isNash(s1) == True )
