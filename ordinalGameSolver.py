@@ -1,6 +1,10 @@
-from game_topology_scaling_dynamics import *
 import numpy as np
 import copy
+from copy import deepcopy
+
+import multiprocessing
+from functools import partial
+
 
 def outcomeToIdx( outcome ):
     if outcome == "Top,Left":
@@ -14,6 +18,293 @@ def outcomeToIdx( outcome ):
 
 def outcomeDiff( outcome ):
     return -np.diff(outcome)[0]
+
+class OrdinalGame(object):
+  def __init__(self, n):
+    self.nplayers = n
+    self.nstrategies = 2
+    self.noutcomes = 2**n
+    self.outcomes = np.array([])
+    self.name = ""
+    self.__gameid = ""
+    self.foundNashEq = []
+    self.foundWeakNashEq = []
+    self.isAttractor = None
+    self.ntests = 0 ### the number of times that this game has been probed for equilibria (the number of strategy sets that have been tested)
+  ### changes one player's strategy in the list of strategies
+  def flip(self, strategy_set, player):
+    newStrats = list(strategy_set) 
+    newStrats[player] = 1 if strategy_set[player] == 0 else 0
+    return( tuple(newStrats) )
+  #### i'll eventually have to generalize out of two strategies per player, but this isn't how that is going to happen
+  #def flip(self, strategy_set, player, newStrategy):
+    #newStrats = list(strategy_set) 
+    #newStrats[player] = newStrategy
+    #return( tuple(newStrats) )
+  def outcome(self, strategy_set):
+    pass
+  def payoff(self, strategy_set, player):
+    return( self.outcomes[strategy_set][player] )
+  ### has a side effect of adding the strategy set to the list of equilibria
+  def isNash(self, strategy_set):
+    if all( [ (self.payoff(strategy_set, i) > self.payoff(self.flip(strategy_set, i), i ) ) for i in range(0,self.nplayers) ] ):
+      if not strategy_set in self.foundNashEq: self.foundNashEq.append( strategy_set )
+      return( True )
+    ## also test for weak nash
+    if all( [ (self.payoff(strategy_set, i) == self.payoff(self.flip(strategy_set, i), i ) ) for i in range(0,self.nplayers) ] ):
+      if not strategy_set in self.foundWeakNashEq: self.foundWeakNashEq.append( strategy_set )
+    else: return( False )
+  ### two player, now generalized
+  #def isNash(self, strategy_set):
+    #if ((self.payoff(strategy_set, 0) >= self.payoff(self.flip(strategy_set, 0), 0 ) ) and
+         #(self.payoff(strategy_set, 1) >= self.payoff(self.flip(strategy_set, 1), 1) ) )  :
+      #return( True )
+    #else: return( False )
+  ### identify each game with a unique string
+  def gameID(self):
+    if self.__gameid == "":
+      #def subgameID(anArrayofArrays):
+        #flattened = ""
+        #if type(anArrayofArrays) == type(int()): return( str(anArrayofArrays) )
+        #elif type(anArrayofArrays) == type(int64()): return( str(anArrayofArrays) )
+        #else: 
+          #for i in range(0, len(anArrayofArrays)):
+            #flattened = flattened + subgameID(anArrayofArrays[i])
+        #return( flattened )
+      #self.__gameid = subgameID(self.outcomes)
+      #print(  self.outcomes )
+      #print(  self.outcomes.flatten() )
+      #print( [i for i in tuple( self.outcomes.flatten() ) ] )
+      self.__gameid = "".join(["%d"%i for i in tuple( self.outcomes.flatten( ) ) ] )
+    return( self.__gameid )
+
+  def findNashEq( self, strats, prospectiveAttractor=False):
+    """ with the prospective attractor argument, this saves time by stopping early if the game has 
+    multiple Nash eq (and is thus not an attractor)  """
+    for i in range(len(strats)):
+      self.isNash( strats[i] )
+      self.ntests += 1
+      if prospectiveAttractor and (len(self.foundNashEq) > 1): break
+      ### another stopping rule: a game can't have more than 2^n nash eq.
+      if len(self.foundNashEq) == 2**(self.nplayers - 1): break
+
+# bunch of overcomplicated crap to get multiprocessing working for me
+### work through the tree
+### a helper function for generating random ordinal games
+def populateEmptyGameTree_functional( outcomes, skeleton ):
+  if len(skeleton) == 0:
+    return( outcomes.pop() )
+  else:
+    for i in range(0, len(skeleton)):
+      skeleton[i] = populateEmptyGameTree_functional(outcomes, skeleton[i] )
+  return( np.array(skeleton) )
+def generateRandomOrdinalGame_functional(gameskeleton, nplayers, rng, strictlyOrdinal=True):
+  grow = deepcopy(gameskeleton) # got rid of this: moot because of copy-on-write inherent in multiprocessing
+  #grow = gameskeleton
+  potentialOutcomes = list(zip( *[ rng.choice(range(1,2**nplayers+1),2**nplayers, replace = (not strictlyOrdinal)) for i in [1]*nplayers ] ) )
+  tmp = OrdinalGame(nplayers)
+  tmp.outcomes = populateEmptyGameTree_functional(potentialOutcomes, grow)
+  #print("trest")
+  #pprint(potentialOutcomes )
+  #pprint(tmp.outcomes )
+  #print()
+  return( tmp )
+def generateRandomStrategySet_functional(rng, nplayers ):
+  strategy = []
+  for i in range(0, nplayers):
+    strategy.append( rng.choice( [0,1], 1, replace=False )[ 0 ] )
+  return( tuple(strategy) )
+def generateRandomStrategySets_functional( reps, nplayers, rng, replace=True):
+  """ hould generate with and without replacement, but I haven't implemented the second yet 
+  (which will be handy for large-but-not-astronomical spaces)"""
+  #print("random sets is happening")
+  return( [ generateRandomStrategySet_functional(rng, nplayers) for i in [1]*reps ] )
+def makeAndCharacterizeGame( seed, reps, gameskeleton, nplayers, noutcomes, orderedStrategySets, prospectiveAttractor):
+  ### generate possible outcomes, None means no set seed
+  rng = np.random.RandomState(seed)
+  game = generateRandomOrdinalGame_functional(gameskeleton, nplayers, rng)
+  #if not aGame.gameID() in self.games: self.games[aGame.gameID()] = aGame
+  ### check all strategies for nashhood
+  if noutcomes > reps: 
+    game.findNashEq(generateRandomStrategySets_functional(reps, nplayers, rng), prospectiveAttractor)
+  else: 
+    game.findNashEq(orderedStrategySets, prospectiveAttractor)
+  ### initialize game id
+  game.gameID()
+  return( game )
+
+class OrdinalGameSpace(object):
+  def __init__(self, n):
+    self.nplayers=n
+    self.noutcomes = 2**n
+    self.ngames = np.math.factorial(2**n)**n
+    self.games = {}
+    self.attractorgames = {}
+    self.winwinattractorgames = {}
+    self.nstrategysetsrecommended = min(2**self.nplayers, 10000)
+    self.ngamesrecommended = min(10 * 10**self.nplayers, 10000)
+    #self.nstrategysetsrecommended = min(2**self.nplayers, 5000)
+    #self.ngamesrecommended = 10 * 10**self.nplayers
+    self.orderedStrategySets = self.generateOrderedStrategySets()
+    ### make an empty game tree with the right number of players
+    self.gameskeleton = []
+    for i in range(0, self.nplayers): 
+      self.gameskeleton = [deepcopy(self.gameskeleton), deepcopy(self.gameskeleton) ]
+
+  def generateRandomStrategySet( self):
+    strategy = []
+    for i in range(0, self.nplayers):
+      strategy.append(np.random.choice([0,1],1)[0])
+    return( tuple(strategy) )
+
+  def generateRandomStrategySets( self, reps, replace=True):
+    """ hould generate with and without replacement, but I haven't implemented the second yet 
+    (which will be handy for large-but-not-astronomical spaces)"""
+    print("random sets is happening")
+    return( [ self.generateRandomStrategySet() for i in [1]*reps ] )
+
+  def generateNextStrategySet( self, previousss):
+    strategy = list(previousss)
+    strategy = np.array(strategy)
+    strategy = strategy[::-1]
+    for i in range(0,len(strategy)):
+      if strategy[i] == 0: 
+        strategy[i] = 1
+        strategy[0:i] = 0
+        break
+    strategy = strategy[::-1]
+    return( tuple(strategy) )
+
+  def generateOrderedStrategySets( self):
+    strategy_sets = [(0,)*self.nplayers,]
+    for i in range(2**self.nplayers-1): strategy_sets.append( self.generateNextStrategySet(strategy_sets[i]) )
+    return( strategy_sets )
+
+  ### work through the tree
+  ### a helper function for generating random ordinal games
+  def populateEmptyGameTree( self, outcomes, skeleton ):
+    if len(skeleton) == 0:
+      return( outcomes.pop() )
+    else:
+      for i in range(0, len(skeleton)):
+        skeleton[i] = self.populateEmptyGameTree(outcomes, skeleton[i] )
+      return( np.array(skeleton) )
+
+  ### a skeleton game is a game in which, for each outcome gives each player a payoff of a different unique consecutive integer from 1 to 2**nplayers.
+  ###  another way of saying this is that payoffs are selected from a series without replacement
+  def generateRandomOrdinalGame( self, strictlyOrdinal=True):
+    grow = deepcopy(self.gameskeleton)
+    ### generate possible outcomes, None means no set seed
+    seed=None
+    rng = np.random.RandomState(seed)
+    potentialOutcomes = list(zip( *[ rng.choice(range(1,2**self.nplayers+1),2**self.nplayers, replace = (not strictlyOrdinal)) for i in [1]*self.nplayers ] ) )
+    tmp = OrdinalGame(self.nplayers)
+    tmp.outcomes = self.populateEmptyGameTree(potentialOutcomes, grow)
+    #print("trest")
+    #pprint(potentialOutcomes )
+    #pprint(tmp.outcomes )
+    #print()
+    return( tmp )
+  #space = OrdinalGameSpace(4)
+  #h = space.generateRandomOrdinalGame()
+  #h.outcomes
+
+  ### does the game have a unique nash eq with at least one highest-possible-payoff in its payoffs?
+  ### WARNING: don't run before nash eq have been searched for
+  def gameIsAttractor( self, aGame):
+    if aGame.isAttractor is not None: return(aGame.isAttractor)
+    if len(aGame.foundNashEq) != 1: 
+      aGame.isAttractor = False
+    else: 
+      #aGame.isAttractor =  2**self.nplayers in aGame.outcomes[aGame.foundNashEq[0]]  ### attractor defined as some player meeting conditions
+      aGame.isAttractor = sorted(aGame.outcomes[aGame.foundNashEq[0]], reverse=True)[0]==2**self.nplayers ### attractor defined as focal player meeting conditions
+      if aGame.ntests < self.nstrategysetsrecommended:
+        ### game isn't being sampled enough for trustworthy results
+        print("Warning OIUFD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
+    return( aGame.isAttractor) 
+  ### does the game have a unique nash eq with all payoffs as the highest possible? 
+
+  def gameIsWinWinAttractor( self, aGame):
+    if aGame.isAttractor == False: return(False)
+    if len(aGame.foundNashEq) != 1: 
+      aGame.isAttractor = False
+    test = all( aGame.outcomes[aGame.foundNashEq[0]] == 2**self.nplayers )
+    if test: 
+      aGame.isAttractor = True
+      if aGame.ntests < self.nstrategysetsrecommended:
+        print("Warning FLKD: game has been tested with %d < %d steps"%(aGame.ntests, self.nstrategysetsrecommended))
+    return( test )
+
+  def populateGameSpace( self, reps, prospectiveAttractor, parallelize=False):
+    if not parallelize:
+      for i in range(reps):
+        game = self.generateRandomOrdinalGame()
+        #if not aGame.gameID() in self.games: self.games[aGame.gameID()] = aGame
+        ### check all strategies for nashhood
+        if self.noutcomes > reps: 
+            game.findNashEq(self.generateRandomStrategySets(reps), prospectiveAttractor)
+        else: 
+            game.findNashEq(self.orderedStrategySets, prospectiveAttractor)
+        self.games[game.gameID()] = game
+        ### stop populating when all games have been found
+        if len(self.games) == self.ngames: break
+    else:
+      makeGamePartial = partial(makeAndCharacterizeGame, reps = reps, gameskeleton = self.gameskeleton, nplayers = self.nplayers, noutcomes = self.noutcomes, orderedStrategySets = self.orderedStrategySets, prospectiveAttractor = prospectiveAttractor )
+      with multiprocessing.Pool( multiprocessing.cpu_count() ) as p:
+        games = p.map(makeGamePartial, np.random.randint(reps*10, size=reps))
+      for game in games:
+        self.games[game.gameID()] = game
+
+  def winWinAttractorGames( self, games):
+    attractors = []
+    for game in games:
+      if self.gameIsWinWinAttractor(game): 
+        attractors.append(game)
+        self.winwinattractorgames[game.gameID] = game
+    return( attractors )
+
+  def attractorGames( self, games):
+    attractors = []
+    for game in games:
+      if self.gameIsAttractor(game): 
+        attractors.append(game)
+    return( attractors )
+
+  def classifyGameAttractors( self, games):
+    categories = [set() for i in range(self.nplayers+3)]
+    print( len( games ))
+    print( len(self.attractorGames( self.games.values() )))
+    for game in games:
+      #print(len(game.foundNashEq), [game.outcomes[s] for s in game.foundNashEq], )
+      if len(game.foundNashEq)==0: 
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundNashEq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
+        categories[0].add( game.gameID() )
+        #print("none")
+      elif len(game.foundNashEq)>1: 
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundNashEq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
+        categories[2].add( game.gameID() )
+        #print ( "mult" )
+      else: 
+        if game.gameID in categories[self.nplayers+1]:
+          print( len(game.foundnasheq) )
+          print( game )
+          print( categories[self.nplayers+1][game.gameID()] )
+        numMaxPayoffs = sum([payoff == 2**self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]])
+        if numMaxPayoffs == 0:
+          index = 1
+        else:
+          index = 2 + numMaxPayoffs
+        categories[index].add( game.gameID() )
+
+        #print (sum([payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]]) , [payoff == self.nplayers for payoff in game.outcomes[game.foundNashEq[0]]], game.outcomes[game.foundNashEq[0]])
+    categories = [len(c) for c in categories ]
+    return( np.array(categories) )
 
 class Ordinal2PGameSpace(OrdinalGameSpace):
 

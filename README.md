@@ -27,8 +27,8 @@ Two files that are output from the main function `sim_inequality_dataout.txt` an
 
 Other main function: `sim_2p_game_attractors.py` run with `python sim_2p_game_attractors.py`. Figure 3 can be built by hand from the output of this, which finds the attractor games of the 2p space exhaustively.
 
-Main script topology_sim_analysis001.r produces figure 4 and exploratory plots from collected data.
+Main script `topology_sim_analysis001.r` (run `Rscript topology_sim_analysis001.r` ) produces figure 4 and exploratory plots from collected data.
 
-Supporting functions in `ordinalGameSolver.py`. test with `python ordinalGameSolver.py` 
-Supporting functions in `game_topology_scaling_dynamics.py`. test with `python game_topology_scaling_dynamics.py`. 
+Supporting functions in `ordinalGameSolver.py`. test with `python ordinalGameSolver.py`. Implements basic constructs of game theory in 2x2x...x2 ordinal games 
+Supporting functions in `game_topology_scaling_dynamics.py`. test with `python game_topology_scaling_dynamics.py`. Implements larger spaces of ordinal games 
 
