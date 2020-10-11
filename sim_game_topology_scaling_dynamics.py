@@ -8,8 +8,6 @@ from time import clock
 #import simplejson ###stackoverflow python-write-a-list-to-a-file
 import sys
 import csv
-import multiprocessing
-from functools import partial
 
 def runClassifyAttractors(i, reps=10000, parallelize=False):
     space = OrdinalGameSpace(i)
@@ -35,21 +33,22 @@ def runClassifyAttractors(i, reps=10000, parallelize=False):
     return( dist )
 
 
-reps = 2000000
-with open("./data_phase1.txt", "a") as output_summary:
+reps = 200000
+with open("./data_phase1.csv", "a") as output_summary:
     #header1 = ("space", "population", "reps", "game_ineq", "nash_ineq", "nash_count")
     #header2 = ("space", "outcomes", "population", "reps", "lots  of values"))
-    header1 = ( "population", "nruns", "unstable0eq", "unstable1eq", "unstableneq", "stable1boss", "stable2boss", "stable3boss", "stable4boss", "stable5boss", "stable6boss", "stable7boss", "stable8boss", "stable9boss")
+    header1 = ( "exp_num", "population", "nruns", "unstable0eq", "unstable1eq", "unstableneq", "stable1boss", "stable2boss", "stable3boss", "stable4boss", "stable5boss", "stable6boss", "stable7boss", "stable8boss", "stable9boss")
     summarywriter = csv.writer(output_summary)
     print( header1)
-    #summarywriter.writerow(header1)
+    summarywriter.writerow(header1)
     if True:
         #for i in tuple([2,9,8, 9,8,9,8,7,7,9,8,9,8,10]):
         #for i in (6,7,8):
-        for i in range(1):
+        for j in range(1):
             for i in range(2,10):
                 ### actual reps will be a bit lower than target reps when parallelize is True. it's fine
                 out = runClassifyAttractors(i, reps, parallelize=True)
-                #summarywriter.writerow( out )
+                out.insert(0, j)
                 out.extend( [-1, ]*( len(header1) - len(out) ))
+                summarywriter.writerow( out )
                 print( out )

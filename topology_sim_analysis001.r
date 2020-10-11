@@ -3,9 +3,9 @@ library(cowplot)
 library(sqldf)
 library(data.table)
 e <- exp(1)
-data.analysis.path <- "data/"
+data.analysis.path <- "./"
 image.analysis.path <- "images/"
-data.analysis.path2 <- "data/"
+data.analysis.path2 <- "./"
 
 toposquat <- read.csv(paste(data.analysis.path, "data_phase1.csv", sep=""))
 topo <- data.frame(exp_num = numeric(0), pop = numeric(0), count = numeric(0), percent = numeric(0), percentattr = numeric(0),  n_eq = numeric(0), concentration = numeric(0), is_attractor = numeric(0), n_runs = numeric(0), n_exp = numeric(0), n_attr = numeric(0) )
@@ -63,6 +63,7 @@ ggsave(file.path(image.analysis.path,"plot_attractors.pdf"), pp$attractorplot, w
 ggsave(file.path(image.analysis.path,"plot_attractors_simple.pdf"), pp$attractorplot_simple, width=12, units="cm")
 
 ### try again
+tmp <- list()
 tmp$attractorplot <- 
 ggplot() + geom_line(data=subset(topo_attr, is_attractor==1), aes(y=percent, x=pop), alpha=1, color="black") + geom_point(data=subset(topo_attr, is_attractor==1), aes(y=percent, x=pop),  stat="identity", alpha=0.9, color="black") + xlab("# players") + ylab("% attractors") + scale_x_continuous(labels=sizes, breaks=sizes) + scale_y_continuous(limits=c(0,0.75))
 ##ggplot(topo_attr, aes(fill=factor(is_attractor), y=percent, x=factor(pop))) + geom_bar(position="dodge", stat="identity")
@@ -71,7 +72,6 @@ pp$attractorplot2  <-
 ggdraw() + draw_plot(tmp$attractorplot, 0, 0, 1, 1) + draw_plot(tmp$logattractorplot + theme( axis.text=element_blank(), axis.title=element_text(size=10)) , 0.5, 0.52, 0.45, 0.4)
 ggsave(file.path(image.analysis.path,"plot_attractors2.pdf"), pp$attractorplot2, width=12, units="cm")
 
-tmp <- list()
 c <- 2
 pwinwin = data.frame(x=seq(from=2, to=9, length.out=100), y=(1/(c^n))^(n-1))
 tmp$winwinplot <- ggplot() + geom_line(data=attractor_bounds , aes(x=x, y=ymin), color="black", position=position_nudge(-1,0), linetype=2) + geom_line(data=pwinwin , aes(x=x, y=y), color="black", position=position_nudge(-1,0)) + xlab("# players") + ylab("% win-win") + scale_y_continuous(limits=c(0,0.75)) + scale_x_continuous(breaks=1:8, labels=sizes)# + geom_line(data=subset(topo_attr, is_attractor==1), aes(y=percent, x=pop-1), alpha=1, color="grey", linetype=2) 
@@ -170,23 +170,26 @@ ggsave(file.path(image.analysis.path,"plot_multiplot2.pdf"), plot_grid(plotlist=
 ggsave(file.path(image.analysis.path,"plot_multiplot3.pdf"), plot_grid(plotlist=list(pp$attractorplot2, pp$giniplotdiff2 ), labels=c("a.", "b."), nrow=1), width=16, height=6, units="cm")
 ggsave(file.path(image.analysis.path,"plot_multiplot3.tiff"), plot_grid(plotlist=list(pp$attractorplot2, pp$giniplotdiff2 ), labels=c("a.", "b."), nrow=1), width=16, height=6, units="cm")
 
-topo_concentration <- sqldf("SELECT concentration, pop, SUM(count) AS count, AVG(percentattr) AS percent, COUNT(exp_num) FROM topo WHERE is_attractor=1 GROUP BY pop, concentration")
-ggplot(topo_concentration, aes(x=factor(concentration), y=percent, group=factor(pop), colour=factor(pop))) + geom_line() 
-ggplot(topo_concentration, aes(x=factor(concentration), y=percent, group=factor(pop), colour=factor(pop))) + geom_line() + scale_y_log10()
+if (FALSE) {
+
+    topo_concentration <- sqldf("SELECT concentration, pop, SUM(count) AS count, AVG(percentattr) AS percent, COUNT(exp_num) FROM topo WHERE is_attractor=1 GROUP BY pop, concentration")
+    ggplot(topo_concentration, aes(x=factor(concentration), y=percent, group=factor(pop), colour=factor(pop))) + geom_line() 
+    ggplot(topo_concentration, aes(x=factor(concentration), y=percent, group=factor(pop), colour=factor(pop))) + geom_line() + scale_y_log10()
 
 
-p <- ggplot(topo, aes(factor(is_attractor, count),  fill=factor(pop))) + geom_bar(aes(y=..density..), position="dodge") 
-p <- ggplot(topo, aes(factor(is_attractor))) + geom_bar( y=count ) 
-p
-p <- ggplot(topo, aes(x=factor(is_attractor), y=count)) + geom_freqpoly(aes(y=..density..), position="dodge") 
-p
-p <- ggplot(topo, aes(factor(is_attractor), group=factor(pop), colour=factor(pop))) + geom_freqpoly(aes(y=..density..), position="dodge") 
-p
-p <- ggplot(topo, aes(factor(pop), percent))+ geom_boxplot(aes(fill = factor(is_attractor))) 
-p
-qplot(levels(factor(topo_attr$is_attractor)), tapply(topo_attr$count, topo_attr$is_attractor, function(x) sum(x, na.rm=TRUE)), geom="bar", stat="identity") 
+    p <- ggplot(topo, aes(factor(is_attractor, count),  fill=factor(pop))) + geom_bar(aes(y=..density..), position="dodge") 
+    p <- ggplot(topo, aes(factor(is_attractor))) + geom_bar( y=count ) 
+    p
+    p <- ggplot(topo, aes(x=factor(is_attractor), y=count)) + geom_freqpoly(aes(y=..density..), position="dodge") 
+    p
+    p <- ggplot(topo, aes(factor(is_attractor), group=factor(pop), colour=factor(pop))) + geom_freqpoly(aes(y=..density..), position="dodge") 
+    p
+    p <- ggplot(topo, aes(factor(pop), percent))+ geom_boxplot(aes(fill = factor(is_attractor))) 
+    p
+    qplot(levels(factor(topo_attr$is_attractor)), tapply(topo_attr$count, topo_attr$is_attractor, function(x) sum(x, na.rm=TRUE)), geom="bar", stat="identity") 
 
-p <- ggplot(topo_attr, aes(factor(is_attractor))) + geom_bar( y=percent ) 
-p
+    p <- ggplot(topo_attr, aes(factor(is_attractor))) + geom_bar( y=percent ) 
+    p
 
-ggplot(topo, aes(factor(concentration), percent)) + geom_point()
+    ggplot(topo, aes(factor(concentration), percent)) + geom_point()
+}
