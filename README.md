@@ -1,6 +1,6 @@
 Code for working paper "A dynamic over games drives selfish agents to win-win outcomes" by Seth Frey, Curtis Atkisson
 
-## `sim_game_topology_scaling_dynamics.py`
+### `sim_game_topology_scaling_dynamics.py`
 
 Main functionality in `sim_game_topology_scaling_dynamics.py`. (test with `python sim_game_topology_scaling_dynamics.py`) 
 It searches the spaces of n=2-9 player games with the property of having different numbers of pure Nash eq (whch reproduces Poisson distribution result) and the number of game that have the property of being attractor games, and the distribution of winners within attractor games.
@@ -17,7 +17,7 @@ Values in latter columns are -1 if they refer to numbers of players that are big
 printed output gives rich summary of file output
 
 
-## `sim_game_topology_scaling_dynamics_inequality.py`
+### `sim_game_topology_scaling_dynamics_inequality.py`
 
 Main functionality in `sim_game_topology_scaling_dynamics_inequality.py`. test with `python sim_game_topology_scaling_dynamics_inequality.py` 
 Output is one row per series of simulations.  
@@ -31,15 +31,15 @@ Output is one row per series of simulations.
 Two files that are output from the main function `sim_inequality_dataout.txt` and `sim_inequality_full_dataout.txt`. The former gives the same output as above in `csv`.  The latter gives one row per series of simulations, the first columns matching the above, and subsequent n columns, for reps=n, the calculated GINI for each of n runs.   Figure 4b can be generated from the latter.
 
 
-## `sim_2p_game_attractors.py`
+### `sim_2p_game_attractors.py`
 
 Other main function: `sim_2p_game_attractors.py` (run with `python sim_2p_game_attractors.py`). Figure 3 can be built by hand from the output of this, which finds the attractor games of the 2p space exhaustively.
 
-## `topology_sim_analysis001.r`
+### `topology_sim_analysis001.r`
 
 Main script `topology_sim_analysis001.r` (run `Rscript topology_sim_analysis001.r` ) produces figure 4 and exploratory plots from collected data.
 
-## Supporting files
+### Supporting files
 
 Supporting functions in `ordinalGameSolver.py`. (test with `python ordinalGameSolver.py`). Implements basic constructs of game theory in 2x2x...x2 ordinal games 
 Supporting functions in `game_topology_scaling_dynamics.py`. (test with `python game_topology_scaling_dynamics.py`). Implements larger spaces of ordinal games 
