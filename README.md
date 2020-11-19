@@ -1,4 +1,4 @@
-Code for working paper "A dynamic over games drives selfish agents to win-win outcomes" by Seth Frey, Curtis Atkisson
+# Code for working paper "A dynamic over games drives selfish agents to win-win outcomes" by Seth Frey, Curtis Atkisson
 
 ### `sim_game_topology_scaling_dynamics.py`
 
