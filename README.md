@@ -1,4 +1,5 @@
 # Code for paper "A dynamic over games drives selfish agents to win-win outcomes" by Seth Frey, Curtis Atkisson
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4301086.svg)](https://doi.org/10.5281/zenodo.4301086)
 
 ### `sim_game_topology_scaling_dynamics.py`
 
